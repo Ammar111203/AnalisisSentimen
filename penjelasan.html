@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analisis Sentimen Komentar YouTube</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        header {
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            padding: 1em;
+        }
+        section {
+            padding: 20px;
+            margin: 10px;
+            background-color: #fff;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h1, h2 {
+            color: #333;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        li {
+            margin-bottom: 10px;
+        }
+        pre {
+            background-color: #f7f7f7;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 0.9em;
+        }
+        .example {
+            background-color: #e9e9e9;
+            padding: 10px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Alur Analisis Sentimen Komentar YouTube</h1>
+</header>
+
+<section>
+    <h2>1. Memuat Dataset</h2>
+    <p>Langkah pertama adalah memuat dataset yang berisi komentar-komentar dari YouTube. Data ini dimuat menggunakan pandas dan disiapkan untuk analisis dengan mengganti nilai <code>NaN</code> dengan string kosong.</p>
+    <pre><code>df = pd.read_csv('youtube_comments.csv')</code></pre>
+    <p>Setelah memuat dataset, kita juga mengganti nilai <code>NaN</code> dengan string kosong untuk menghindari kesalahan saat pemrosesan lebih lanjut:</p>
+    <pre><code>df.fillna('', inplace=True)</code></pre>
+</section>
+
+<section>
+    <h2>2. Menyiapkan Fungsi untuk Normalisasi Slang</h2>
+    <p>Pada tahap ini, kita menyiapkan fungsi untuk mengganti kata slang dalam komentar dengan kata yang lebih baku, menggunakan kamus slang yang telah disiapkan sebelumnya.</p>
+    <pre><code>
+def convert_to_slang(text):
+    # Proses normalisasi slang di sini
+    return " ".join([slang_dict.get(word, word) for word in text.split()])
+    </code></pre>
+</section>
+
+<section>
+    <h2>3. Pembersihan Teks</h2>
+    <p>Teks komentar kemudian dibersihkan dengan mengubahnya menjadi huruf kecil, menghapus karakter non-alfabet, dan menghapus spasi yang berlebihan.</p>
+    <pre><code>
+def clean_text(text):
+    text = text.lower()
+    text = re.sub(r'[^a-z\s]', '', text)  # Menghapus karakter selain huruf
+    return ' '.join(text.split())  # Menghapus spasi ganda
+    </code></pre>
+</section>
+
+<section>
+    <h2>4. Penghapusan Stopwords dan Stemming</h2>
+    <p>Fungsi ini bertugas menghapus kata-kata yang tidak memiliki arti penting (stopwords) serta mengubah kata-kata menjadi bentuk dasar (stemming).</p>
+    <pre><code>
+def preprocess_text(text):
+    text = convert_to_slang(text)
+    text = clean_text(text)
+    stopwords = StopWordRemoverFactory().get_stop_words()
+    text = ' '.join([word for word in text.split() if word not in stopwords])
+    stemmer = StemmerFactory().create_stemmer()
+    text = ' '.join([stemmer.stem(word) for word in text.split()])
+    return text
+    </code></pre>
+</section>
+
+<section>
+    <h2>5. Analisis Sentimen dengan VADER</h2>
+    <p>Analisis sentimen dilakukan menggunakan <code>SentimentIntensityAnalyzer</code> dari <code>nltk</code>, yang memberikan skor sentimen untuk setiap komentar berdasarkan skala positif, negatif, dan netral.</p>
+    <pre><code>
+def get_sentiment(text):
+    sid = SentimentIntensityAnalyzer()
+    score = sid.polarity_scores(text)
+    if score['compound'] >= 0.05:
+        return 'Positif'
+    elif score['compound'] <= -0.05:
+        return 'Negatif'
+    else:
+        return 'Netral'
+    </code></pre>
+</section>
+
+<section>
+    <h2>6. Pengolahan Data dan Statistik</h2>
+    <p>Kita kemudian mengolah data lebih lanjut dengan menghitung panjang komentar dan jumlah kata dalam setiap komentar untuk analisis lebih lanjut atau visualisasi.</p>
+    <pre><code>
+df['length'] = df['comment'].apply(lambda x: len(x.split()))
+    </code></pre>
+</section>
+
+<section>
+    <h2>7. Visualisasi Data</h2>
+    <p>Untuk melihat distribusi panjang komentar, kita menggunakan <code>matplotlib</code> dan <code>seaborn</code> untuk membuat histogram, serta <code>WordCloud</code> untuk menampilkan kata-kata yang sering muncul dalam komentar.</p>
+    <pre><code>
+# Visualisasi panjang komentar
+plt.figure(figsize=(10, 6))
+sns.histplot(df['length'], bins=30)
+plt.title('Distribusi Panjang Komentar')
+plt.show()
+
+# Membuat Word Cloud
+wordcloud = WordCloud(width=800, height=400).generate(" ".join(df['comment']))
+plt.imshow(wordcloud, interpolation='bilinear')
+plt.axis('off')
+plt.show()
+    </code></pre>
+</section>
+
+<section>
+    <h2>8. Model Klasifikasi: K-Nearest Neighbors (KNN)</h2>
+    <p>Pada tahap ini, kita menggunakan model KNN untuk mengklasifikasikan sentimen komentar. Dataset dibagi menjadi data pelatihan dan pengujian, dan model dilatih dengan menggunakan representasi numerik dari teks.</p>
+    <pre><code>
+vectorizer = CountVectorizer()
+X = vectorizer.fit_transform(df['comment'])
+y = df['sentiment']
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+model = KNeighborsClassifier(n_neighbors=5)
+model.fit(X_train, y_train)
+y_pred = model.predict(X_test)
+
+print(accuracy_score(y_test, y_pred))
+print(classification_report(y_test, y_pred))
+    </code></pre>
+</section>
+
+<section>
+    <h2>9. Menyimpan Hasil</h2>
+    <p>Setelah proses selesai, kita menyimpan hasil analisis dalam file CSV dan gambar untuk referensi lebih lanjut.</p>
+    <pre><code>
+df.to_csv('processed_comments.csv', index=False)
+plt.savefig('histogram_panjang_komentar.png')
+plt.savefig('wordcloud.png')
+    </code></pre>
+</section>
+
+</body>
+</html>
